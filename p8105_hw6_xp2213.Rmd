@@ -122,7 +122,73 @@ homi_data = read_csv(url) |>
 
 In this step, the original dataset is imported, and two key variables are created: city_state, which combines the city and state names, and a binary variable, resolved, indicating whether the homicide was solved. Cities that do not report victim race, such as Dallas, TX; Phoenix, AZ; and Kansas City, MO, are excluded, along with Tulsa, AL, due to a data entry error. The analysis is further narrowed to include only cases where victim_race is recorded as either "White" or "Black" and victim_age is confirmed as a numeric value.
 
+<br>
+Analyze for Baltimore, MD
+```{r}
+# Filter data for Baltimore, MD
+Bal_MD = homi_data |> 
+  filter(city_state == "Baltimore, MD") 
 
+# Fit a logistic regression
+Bal_MD_fit = glm(
+  resolved ~ victim_age + victim_race + victim_sex,
+  data = Bal_MD, family = binomial()
+) |> 
+  tidy()
 
+knitr::kable(Bal_MD_fit, digits = 3)
 
+ORmale_Bal_MD = Bal_MD_fit |> 
+  mutate(
+    OR = exp(estimate),
+    lower_CI = exp(estimate - 1.96 * std.error),
+    upper_CI = exp(estimate + 1.96 * std.error)
+  ) |> 
+  filter(term == "victim_sexMale") |> 
+  select(term, OR, lower_CI, upper_CI)
+
+knitr::kable(ORmale_Bal_MD, digits = 3)
+```
+
+```{r}
+# Fit a logistic regression for each city
+all_city_results <- homi_data |> 
+  group_by(city_state) |> 
+  nest() |> 
+  mutate(
+    model = map(data, ~ glm(resolved ~ victim_age + victim_race + victim_sex, 
+                            data = .x, family = binomial())),
+    tidy_results = map(model, ~ tidy(.x) |> 
+                         filter(term == "victim_sexMale") |> 
+                         mutate(
+                           OR = exp(estimate),
+                           lower_CI = exp(estimate - 1.96 * std.error),
+                           upper_CI = exp(estimate + 1.96 * std.error)
+                         ))
+  ) |> 
+  unnest(tidy_results) |> 
+  select(city_state, OR, lower_CI, upper_CI)
+
+knitr::kable(all_city_results, digits = 3)
+```
+
+<br>
+Plot of the estimated ORs and CIs for all city.
+```{r}
+all_city_results_plot = 
+  all_city_results |> 
+  ggplot(aes(x = reorder(city_state, OR), y = OR)) +
+  geom_point() +
+  geom_errorbar(aes(ymin = lower_CI, ymax = upper_CI), width = 0.2) +
+  coord_flip() +
+  labs(
+    title = "Odds Ratios for Solving Homicides (Male vs Female Victims)",
+    x = "City",
+    y = "Odds Ratio"
+  )
+
+all_city_results_plot
+```
+
+The plot reveals that in most cities, the ORs are below 1, suggesting that cases involving female victims are more likely to be resolved compared to those involving male victims. However, the CIs for the majority of cities include the null value of 1, indicating that these differences in case resolution rates between male and female victims are not statistically significant. Cities such as Stockton, CA, Fresno, CA, Richmond, VA, Tampa, FL, and San Bernardino, CA exhibit notably wider confidence intervals, which may reflect greater variability or smaller sample sizes relative to other cities. Albuquerque, NM stands out with a substantially higher OR and an exceptionally wide CI, making it a potential outlier that warrants further investigation to understand the underlying factors contributing to this result.
 
