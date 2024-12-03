@@ -52,6 +52,21 @@ boot_sample = function(df) {
   sample_frac(df, replace = TRUE)
 }
 
+# Bootstrap resampling.
+boot_straps_result = tibble(strap_number = 1:5000) |> 
+  mutate(
+    strap_sample = map(strap_number, ~ boot_sample(weather_df)),
+    models = map(strap_sample, ~ lm(tmax ~ tmin, data = .x)),
+    results = map(models, tidy),                         
+    r_squared = map_dbl(models, ~ glance(.x)$r.squared), 
+    log_beta_product = map_dbl(models, ~ {       
+      coefs = tidy(.x)  
+      beta_0 = coefs |> filter(term == "(Intercept)") |> pull(estimate)
+      beta_1 = coefs |> filter(term == "tmin") |> pull(estimate)
+      log(abs(beta_0 * beta_1))
+    })
+  )
 
+boot_straps_result
 ```
 
