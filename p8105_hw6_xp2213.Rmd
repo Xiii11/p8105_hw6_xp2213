@@ -1,5 +1,5 @@
 ---
-title: "p8105_hw6_xp2213"
+title: "p8105 Homework 6"
 output: github_document
 date: "2024-12-03"
 ---
@@ -30,5 +30,28 @@ scale_colour_discrete = scale_colour_viridis_d
 scale_fill_discrete = scale_fill_viridis_d
 
 set.seed(924)
+```
+
+# Question 1: 2017 Central Park weather data
+```{r}
+# Dataset download and processes.
+weather_df = 
+  rnoaa::meteo_pull_monitors(
+    c("USW00094728"),
+    var = c("PRCP", "TMIN", "TMAX"), 
+    date_min = "2017-01-01",
+    date_max = "2017-12-31") %>%
+  mutate(
+    name = recode(id, USW00094728 = "CentralPark_NY"),
+    tmin = tmin / 10,
+    tmax = tmax / 10) %>%
+  select(name, id, everything())
+
+# Define a bootstrap sampling function.
+boot_sample = function(df) {
+  sample_frac(df, replace = TRUE)
+}
+
+
 ```
 
