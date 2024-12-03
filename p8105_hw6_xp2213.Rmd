@@ -203,11 +203,92 @@ child_birthweight =
     babysex = factor(babysex, levels = c(1, 2), labels = c("Male", "Female")),
     frace = factor(frace, levels = c(1, 2, 3, 4, 8, 9), labels = c("White", "Black", "Asian", "Puerto Rican", "Other", "Unknown")),
     mrace = factor(mrace, levels = c(1, 2, 3, 4, 8), labels = c("White", "Black", "Asian", "Puerto Rican", "Other")),
-    malform = factor(malform, levels = c(0, 1), labels = c("Absent", "Present"))
+    malform = factor(malform, levels = c(0, 1), labels = c("Absent", "Present")),
   )
 ```
 
 During this step, the original dataset was imported, and necessary variables (babysex, frace, mrace, and malform) were converted from numeric to factors to ensure they are treated as categorical variables in the analysis. Missing values were checked.
 
+<br>
+Propose a regression model for birthweight.
+```{r}
+hypo_birthw_model = 
+  lm(bwt ~ babysex + delwt + gaweeks + mheight + momage + ppbmi + ppwt + smoken + wtgain + parity + pnumlbw + pnumsga, data = child_birthweight 
+     )
 
+hypo_birthw_model |> 
+  glance() |> 
+  knitr::kable(digits = 3)
+``` 
 
+The modeling process is designed based on based on a hypothesized structure by identifying biological and behavioral factors known to influence birthweight. First, it is well-established that birthweight differs between male and female infants, making babysex a critical variable. Maternal physical characteristics significantly impact birthweight, including delwt (mother’s weight at delivery), gaweeks (gestational age in weeks), mheight (mother’s height), momage (mother’s age at delivery), ppbmi (mother’s pre-pregnancy BMI), and ppwt (mother’s pre-pregnancy weight). Additionally, maternal health behaviors, such as smoken (average number of cigarettes smoked per day during pregnancy) and wtgain (mother’s weight gain during pregnancy), play a pivotal role in determining birth outcomes. Lastly, prior obstetric history, including parity (number of previous live births), pnumlbw (number of previous low birthweight babies), and pnumgsa (number of prior small-for-gestational-age babies), is incorporated to account for its influence on birthweight.
+
+<br>
+Plot of model residuals against fitted values.
+```{r}
+child_birthweight_plot = child_birthweight |> 
+  add_predictions(hypo_birthw_model) |> 
+  add_residuals(hypo_birthw_model) |> 
+  ggplot(aes(x = pred, y = resid)) +
+  geom_point(alpha = 0.3) +
+  geom_hline(yintercept = 0, color = "red") +
+  labs(
+    title = "Residuals vs Fitted Values",
+    x = "Fitted Values",
+    y = "Residuals"
+  )
+
+child_birthweight_plot
+```
+
+<br>
+Model comparison.
+```{r}
+# Fit the two models based on the instructions.
+model_1 = 
+  lm(bwt ~ blength + gaweeks, data = child_birthweight)
+
+model_2 = 
+  lm(bwt ~ bhead + blength + babysex + bhead:blength + bhead:babysex + blength:babysex + bhead:blength:babysex, data = child_birthweight)
+
+summary(model_1)
+summary(model_2)
+
+cv_df =
+  crossv_mc(child_birthweight, 100) |> 
+  mutate(
+    train = map(train, as_tibble),
+    test = map(test, as_tibble)) |> 
+  mutate(
+    hypo_mod = map(train, ~ lm(bwt ~ babysex + delwt + gaweeks + mheight + momage + ppbmi + ppwt + smoken + wtgain + parity + pnumlbw + pnumsga, data = .x)),
+    model1_mod = map(train, ~ lm(bwt ~ blength + gaweeks, data = .x)),
+    model2_mod = map(train, ~ lm(bwt ~ bhead + blength + babysex + bhead:blength + bhead:babysex + blength:babysex + bhead:blength:babysex, data = .x))
+  ) |> 
+  mutate(
+    rmse_hypo = map2_dbl(hypo_mod, test, ~rmse(model = .x, data = .y)),
+    rmse_model1 = map2_dbl(model1_mod, test, ~rmse(model = .x, data = .y)),
+    rmse_model2 = map2_dbl(model2_mod, test, ~rmse(model = .x, data = .y))
+  )
+
+# Visualization of prediction error distributions
+cv_df_plot = cv_df |> 
+  select(starts_with("rmse")) |>
+  pivot_longer(
+    everything(),
+    names_to = "model",
+    values_to = "rmse",
+    names_prefix = "rmse_"
+  ) |>
+  mutate(model = fct_inorder(model)) |>
+  ggplot(aes(x = model, y = rmse)) + 
+  geom_violin() +
+  labs(
+    title = "Distribution of Prediction Errors Across Models",
+    x = "Model",
+    y = "rmse"
+  )
+
+cv_df_plot
+```
+
+The plot depicts the distribution of RMSE values for the three models after 100 cross-validation splits. Among these three models, the "model2," which includes head circumference, length, sex, and all interactions, has the lowest RMSE and the narrowest error distribution, suggesting it provides the most accurate and consistent predictions among the three models.
