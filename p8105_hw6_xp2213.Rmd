@@ -192,3 +192,22 @@ all_city_results_plot
 
 The plot reveals that in most cities, the ORs are below 1, suggesting that cases involving female victims are more likely to be resolved compared to those involving male victims. However, the CIs for the majority of cities include the null value of 1, indicating that these differences in case resolution rates between male and female victims are not statistically significant. Cities such as Stockton, CA, Fresno, CA, Richmond, VA, Tampa, FL, and San Bernardino, CA exhibit notably wider confidence intervals, which may reflect greater variability or smaller sample sizes relative to other cities. Albuquerque, NM stands out with a substantially higher OR and an exceptionally wide CI, making it a potential outlier that warrants further investigation to understand the underlying factors contributing to this result.
 
+# Question 3: Child’s birthweight
+```{r}
+# Dataset import and clean
+child_birthweight =
+    read_csv("data/birthweight.csv", na = c("NA", "", ".", " ")) |> 
+  janitor::clean_names() |> 
+  drop_na() |> 
+  mutate(
+    babysex = factor(babysex, levels = c(1, 2), labels = c("Male", "Female")),
+    frace = factor(frace, levels = c(1, 2, 3, 4, 8, 9), labels = c("White", "Black", "Asian", "Puerto Rican", "Other", "Unknown")),
+    mrace = factor(mrace, levels = c(1, 2, 3, 4, 8), labels = c("White", "Black", "Asian", "Puerto Rican", "Other")),
+    malform = factor(malform, levels = c(0, 1), labels = c("Absent", "Present"))
+  )
+```
+
+During this step, the original dataset was imported, and necessary variables (babysex, frace, mrace, and malform) were converted from numeric to factors to ensure they are treated as categorical variables in the analysis. Missing values were checked.
+
+
+
